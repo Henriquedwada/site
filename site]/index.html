@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BW Estações - Moda para Todas as Estações</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .hero-bg {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3');
+            background-size: cover;
+            background-position: center;
+        }
+        .product-card:hover .product-actions {
+            opacity: 1;
+        }
+        .admin-nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="font-sans bg-gray-50">
+    <!-- Database Simulation -->
+    <script>
+        // Simulated database
+        const database = {
+            users: [
+                { id: 1, name: "Admin", email: "admin@bw.com", password: "admin123", role: "admin" },
+                { id: 2, name: "Cliente Teste", email: "cliente@teste.com", password: "teste123", role: "user" }
+            ],
+            products: [
+                { id: 1, name: "Blazer Feminino", price: 199.90, category: "Feminino", image: "https://images.unsplash.com/photo-1539533018447-63fcce2678e4?ixlib=rb-4.0.3", season: "Outono/Inverno" },
+                { id: 2, name: "Camiseta Básica", price: 49.90, category: "Masculino", image: "https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?ixlib=rb-4.0.3", season: "Todas" },
+                { id: 3, name: "Vestido Floral", price: 129.90, category: "Feminino", image: "https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?ixlib=rb-4.0.3", season: "Primavera/Verão" },
+                { id: 4, name: "Calça Jeans", price: 159.90, category: "Masculino", image: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?ixlib=rb-4.0.3", season: "Todas" },
+                { id: 5, name: "Casaco de Inverno", price: 299.90, category: "Feminino", image: "https://images.unsplash.com/photo-1551232864-3f0890e580d9?ixlib=rb-4.0.3", season: "Inverno" },
+                { id: 6, name: "Camisa Social", price: 179.90, category: "Masculino", image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?ixlib=rb-4.0.3", season: "Todas" }
+            ],
+            orders: [
+                { id: 1, userId: 2, products: [1, 3], total: 329.80, status: "Entregue", date: "2023-05-15" }
+            ]
+        };
+
+        // Current user state
+        let currentUser = null;
+
+        // Function to handle login
+        function login(email, password) {
+            const user = database.users.find(u => u.email === email && u.password === password);
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                return true;
+            }
+            return false;
+        }
+
+        // Function to handle registration
+        function register(name, email, password) {
+            const id = database.users.length + 1;
+            const newUser = { id, name, email, password, role: "user" };
+            database.users.push(newUser);
+            return newUser;
+        }
+
+        // Check if user is logged in on page load
+        window.onload = function() {
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                currentUser = JSON.parse(storedUser);
+                updateAuthUI();
+            }
+            
+            // Show homepage by default
+            showSection('home');
+        };
+
+        // Update UI based on authentication state
+        function updateAuthUI() {
+            const loginBtn = document.getElementById('loginBtn');
+            const userMenu = document.getElementById('userMenu');
+            const adminLink = document.getElementById('adminLink');
+            
+            if (currentUser) {
+                loginBtn.classList.add('hidden');
+                userMenu.classList.remove('hidden');
+                document.getElementById('userName').textContent = currentUser.name;
+                
+                if (currentUser.role === 'admin') {
+                    adminLink.classList.remove('hidden');
+                } else {
+                    adminLink.classList.add('hidden');
+                }
+            } else {
+                loginBtn.classList.remove('hidden');
+                userMenu.classList.add('hidden');
+                adminLink.classList.add('hidden');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            updateAuthUI();
+            showSection('home');
+            showNotification('Você foi desconectado com sucesso.', 'success');
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            }`;
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Show/hide sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Special cases
+            if (sectionId === 'products') {
+                renderProducts();
+            } else if (sectionId === 'admin') {
+                if (currentUser && currentUser.role === 'admin') {
+                    renderAdminDashboard();
+                } else {
+                    showSection('home');
+                    showNotification('Acesso não autorizado.', 'error');
+                }
+            }
+        }
+
+        // Render products
+        function renderProducts() {
+            const container = document.getElementById('productsContainer');
+            container.innerHTML = '';
+            
+            database.products.forEach(product => {
+                const productCard = `
+                    <div class="product-card bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                        <div class="relative">
+                            <img src="${product.image}" alt="${product.name}" class="w-full h-64 object-cover">
+                            <div class="product-actions absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium mr-2 hover:bg-gray-100">
+                                    <i class="fas fa-shopping-cart mr-1"></i> Comprar
+                                </button>
+                                <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-100">
+                                    <i class="far fa-heart mr-1"></i> Favoritar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <h3 class="text-lg font-semibold mb-1">${product.name}</h3>
+                            <p class="text-gray-600 mb-2">${product.category} • ${product.season}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xl font-bold text-gray-900">R$ ${product.price.toFixed(2)}</span>
+                                <span class="text-sm text-gray-500">3x R$ ${(product.price / 3).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += productCard;
+            });
+        }
+
+        // Render admin dashboard
+        function renderAdminDashboard() {
+            // Users table
+            const usersTable = document.getElementById('usersTable');
+            usersTable.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-2 px-4 text-left">ID</th>
+                        <th class="py-2 px-4 text-left">Nome</th>
+                        <th class="py-2 px-4 text-left">Email</th>
+                        <th class="py-2 px-4 text-left">Tipo</th>
+                        <th class="py-2 px-4 text-left">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${database.users.map(user => `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="py-2 px-4">${user.id}</td>
+                            <td class="py-2 px-4">${user.name}</td>
+                            <td class="py-2 px-4">${user.email}</td>
+                            <td class="py-2 px-4">${user.role === 'admin' ? 'Administrador' : 'Cliente'}</td>
+                            <td class="py-2 px-4">
+                                <button class="text-blue-500 hover:text-blue-700 mr-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                ${user.role !== 'admin' ? `
+                                <button class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            // Products table
+            const productsTable = document.getElementById('productsTable');
+            productsTable.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-2 px-4 text-left">ID</th>
+                        <th class="py-2 px-4 text-left">Imagem</th>
+                        <th class="py-2 px-4 text-left">Nome</th>
+                        <th class="py-2 px-4 text-left">Preço</th>
+                        <th class="py-2 px-4 text-left">Categoria</th>
+                        <th class="py-2 px-4 text-left">Estação</th>
+                        <th class="py-2 px-4 text-left">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${database.products.map(product => `
+                        <tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="py-2 px-4">${product.id}</td>
+                            <td class="py-2 px-4">
+                                <img src="${product.image}" alt="${product.name}" class="w-16 h-16 object-cover rounded">
+                            </td>
+                            <td class="py-2 px-4">${product.name}</td>
+                            <td class="py-2 px-4">R$ ${product.price.toFixed(2)}</td>
+                            <td class="py-2 px-4">${product.category}</td>
+                            <td class="py-2 px-4">${product.season}</td>
+                            <td class="py-2 px-4">
+                                <button class="text-blue-500 hover:text-blue-700 mr-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            // Orders table
+            const ordersTable = document.getElementById('ordersTable');
+            ordersTable.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-2 px-4 text-left">ID</th>
+                        <th class="py-2 px-4 text-left">Cliente</th>
+                        <th class="py-2 px-4 text-left">Produtos</th>
+                        <th class="py-2 px-4 text-left">Total</th>
+                        <th class="py-2 px-4 text-left">Status</th>
+                        <th class="py-2 px-4 text-left">Data</th>
+                        <th class="py-2 px-4 text-left">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${database.orders.map(order => {
+                        const user = database.users.find(u => u.id === order.userId);
+                        const products = order.products.map(pId => {
+                            const product = database.products.find(p => p.id === pId);
+                            return product ? product.name : 'Produto não encontrado';
+                        }).join(', ');
+                        
+                        return `
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-2 px-4">${order.id}</td>
+                                <td class="py-2 px-4">${user ? user.name : 'Cliente não encontrado'}</td>
+                                <td class="py-2 px-4">${products}</td>
+                                <td class="py-2 px-4">R$ ${order.total.toFixed(2)}</td>
+                                <td class="py-2 px-4">
+                                    <span class="px-2 py-1 rounded-full text-xs ${
+                                        order.status === 'Entregue' ? 'bg-green-100 text-green-800' :
+                                        order.status === 'Cancelado' ? 'bg-red-100 text-red-800' :
+                                        'bg-yellow-100 text-yellow-800'
+                                    }">${order.status}</span>
+                                </td>
+                                <td class="py-2 px-4">${order.date}</td>
+                                <td class="py-2 px-4">
+                                    <button class="text-blue-500 hover:text-blue-700 mr-2">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="text-green-500 hover:text-green-700">
+                                        <i class="fas fa-print"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            `;
+        }
+
+        // Handle login form submission
+        function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (login(email, password)) {
+                showNotification('Login realizado com sucesso!', 'success');
+                updateAuthUI();
+                showSection('home');
+                document.getElementById('loginForm').reset();
+                document.getElementById('loginModal').classList.add('hidden');
+            } else {
+                showNotification('Email ou senha incorretos.', 'error');
+            }
+        }
+
+        // Handle register form submission
+        function handleRegister(event) {
+            event.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                showNotification('As senhas não coincidem.', 'error');
+                return;
+            }
+            
+            if (database.users.some(u => u.email === email)) {
+                showNotification('Este email já está cadastrado.', 'error');
+                return;
+            }
+            
+            const newUser = register(name, email, password);
+            currentUser = newUser;
+            localStorage.setItem('currentUser', JSON.stringify(newUser));
+            
+            showNotification('Cadastro realizado com sucesso!', 'success');
+            updateAuthUI();
+            showSection('home');
+            document.getElementById('registerForm').reset();
+            document.getElementById('registerModal').classList.add('hidden');
+        }
+
+        // Open modal
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+    </script>
+
+    <!-- Notification -->
+    <div id="notification" class="hidden fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg"></div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <button onclick="showSection('home')" class="text-2xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-leaf text-green-600 mr-2"></i>
+                        BW Estações
+                    </button>
+                </div>
+                
+                <!-- Navigation -->
+                <nav class="hidden md:flex space-x-8">
+                    <button onclick="showSection('home')" class="text-gray-700 hover:text-green-600 font-medium">Home</button>
+                    <button onclick="showSection('products')" class="text-gray-700 hover:text-green-600 font-medium">Produtos</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Feminino</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Masculino</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Ofertas</button>
+                    <button id="adminLink" class="hidden text-gray-700 hover:text-green-600 font-medium" onclick="showSection('admin')">Admin</button>
+                </nav>
+                
+                <!-- User Actions -->
+                <div class="flex items-center space-x-4">
+                    <button class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="text-gray-700 hover:text-green-600">
+                        <i class="far fa-heart"></i>
+                    </button>
+                    <button class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-shopping-cart"></i>
+                    </button>
+                    
+                    <!-- Login Button -->
+                    <button id="loginBtn" onclick="openModal('loginModal')" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors">
+                        Entrar
+                    </button>
+                    
+                    <!-- User Menu -->
+                    <div id="userMenu" class="hidden relative">
+                        <button id="userDropdownBtn" class="flex items-center space-x-2 text-gray-700 hover:text-green-600">
+                            <span id="userName"></span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </button>
+                        
+                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                            <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Minha Conta</a>
+                            <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Meus Pedidos</a>
+                            <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Favoritos</a>
+                            <div class="border-t border-gray-200"></div>
+                            <a href="#" onclick="logout()" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Sair</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mobile Menu Button -->
+                <button id="mobileMenuBtn" class="md:hidden text-gray-700">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Mobile Menu -->
+            <div id="mobileMenu" class="hidden md:hidden mt-4 pb-4">
+                <div class="flex flex-col space-y-3">
+                    <button onclick="showSection('home')" class="text-gray-700 hover:text-green-600 font-medium">Home</button>
+                    <button onclick="showSection('products')" class="text-gray-700 hover:text-green-600 font-medium">Produtos</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Feminino</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Masculino</button>
+                    <button class="text-gray-700 hover:text-green-600 font-medium">Ofertas</button>
+                    <button id="adminLinkMobile" class="hidden text-gray-700 hover:text-green-600 font-medium" onclick="showSection('admin')">Admin</button>
+                    
+                    <div class="pt-2 border-t border-gray-200">
+                        <button id="loginBtnMobile" onclick="openModal('loginModal')" class="w-full bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors">
+                            Entrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Home Section -->
+        <section id="home" class="page-section">
+            <!-- Hero Banner -->
+            <div class="hero-bg h-96 flex items-center justify-center text-white">
+                <div class="text-center px-4">
+                    <h1 class="text-4xl md:text-5xl font-bold mb-4">Moda para Todas as Estações</h1>
+                    <p class="text-xl mb-8">Descubra as últimas tendências da BW Estações</p>
+                    <button onclick="showSection('products')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-medium transition-colors">
+                        Compre Agora
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Categories -->
+            <div class="container mx-auto px-4 py-12">
+                <h2 class="text-3xl font-bold text-center mb-8">Nossas Categorias</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="relative rounded-lg overflow-hidden h-64">
+                        <img src="https://images.unsplash.com/photo-1551232864-3f0890e580d9?ixlib=rb-4.0.3" alt="Feminino" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                            <button class="bg-white text-gray-800 px-6 py-2 rounded-full font-medium hover:bg-gray-100">
+                                Feminino
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="relative rounded-lg overflow-hidden h-64">
+                        <img src="https://images.unsplash.com/photo-1598033129183-c4f50c736f10?ixlib=rb-4.0.3" alt="Masculino" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                            <button class="bg-white text-gray-800 px-6 py-2 rounded-full font-medium hover:bg-gray-100">
+                                Masculino
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="relative rounded-lg overflow-hidden h-64">
+                        <img src="https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?ixlib=rb-4.0.3" alt="Acessórios" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                            <button class="bg-white text-gray-800 px-6 py-2 rounded-full font-medium hover:bg-gray-100">
+                                Acessórios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Featured Products -->
+            <div class="bg-gray-100 py-12">
+                <div class="container mx-auto px-4">
+                    <h2 class="text-3xl font-bold text-center mb-8">Destaques da Temporada</h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="product-card bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                            <div class="relative">
+                                <img src="https://images.unsplash.com/photo-1539533018447-63fcce2678e4?ixlib=rb-4.0.3" alt="Blazer Feminino" class="w-full h-64 object-cover">
+                                <div class="product-actions absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium mr-2 hover:bg-gray-100">
+                                        <i class="fas fa-shopping-cart mr-1"></i> Comprar
+                                    </button>
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-100">
+                                        <i class="far fa-heart mr-1"></i> Favoritar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="text-lg font-semibold mb-1">Blazer Feminino</h3>
+                                <p class="text-gray-600 mb-2">Feminino • Outono/Inverno</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-gray-900">R$ 199,90</span>
+                                    <span class="text-sm text-gray-500">3x R$ 66,63</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="product-card bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                            <div class="relative">
+                                <img src="https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?ixlib=rb-4.0.3" alt="Camiseta Básica" class="w-full h-64 object-cover">
+                                <div class="product-actions absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium mr-2 hover:bg-gray-100">
+                                        <i class="fas fa-shopping-cart mr-1"></i> Comprar
+                                    </button>
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-100">
+                                        <i class="far fa-heart mr-1"></i> Favoritar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="text-lg font-semibold mb-1">Camiseta Básica</h3>
+                                <p class="text-gray-600 mb-2">Masculino • Todas</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-gray-900">R$ 49,90</span>
+                                    <span class="text-sm text-gray-500">3x R$ 16,63</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="product-card bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                            <div class="relative">
+                                <img src="https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?ixlib=rb-4.0.3" alt="Vestido Floral" class="w-full h-64 object-cover">
+                                <div class="product-actions absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium mr-2 hover:bg-gray-100">
+                                        <i class="fas fa-shopping-cart mr-1"></i> Comprar
+                                    </button>
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-100">
+                                        <i class="far fa-heart mr-1"></i> Favoritar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="text-lg font-semibold mb-1">Vestido Floral</h3>
+                                <p class="text-gray-600 mb-2">Feminino • Primavera/Verão</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-gray-900">R$ 129,90</span>
+                                    <span class="text-sm text-gray-500">3x R$ 43,30</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="product-card bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
+                            <div class="relative">
+                                <img src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?ixlib=rb-4.0.3" alt="Calça Jeans" class="w-full h-64 object-cover">
+                                <div class="product-actions absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium mr-2 hover:bg-gray-100">
+                                        <i class="fas fa-shopping-cart mr-1"></i> Comprar
+                                    </button>
+                                    <button class="bg-white text-gray-800 px-4 py-2 rounded-full font-medium hover:bg-gray-100">
+                                        <i class="far fa-heart mr-1"></i> Favoritar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <h3 class="text-lg font-semibold mb-1">Calça Jeans</h3>
+                                <p class="text-gray-600 mb-2">Masculino • Todas</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-gray-900">R$ 159,90</span>
+                                    <span class="text-sm text-gray-500">3x R$ 53,30</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-8">
+                        <button onclick="showSection('products')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-medium transition-colors">
+                            Ver Todos os Produtos
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Newsletter -->
+            <div class="bg-gray-800 text-white py-12">
+                <div class="container mx-auto px-4 text-center">
+                    <h2 class="text-3xl font-bold mb-4">Receba Nossas Ofertas</h2>
+                    <p class="text-xl mb-6">Cadastre-se e receba as melhores promoções diretamente no seu email.</p>
+                    
+                    <form class="max-w-md mx-auto flex">
+                        <input type="email" placeholder="Seu melhor email" class="flex-grow px-4 py-3 rounded-l-full focus:outline-none text-gray-900">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-r-full font-medium transition-colors">
+                            Cadastrar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Products Section -->
+        <section id="products" class="page-section hidden">
+            <div class="container mx-auto px-4 py-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                    <h2 class="text-3xl font-bold mb-4 md:mb-0">Nossos Produtos</h2>
+                    
+                    <div class="flex space-x-4 w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <select class="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-full leading-tight focus:outline-none focus:border-green-500">
+                                <option>Categoria</option>
+                                <option>Feminino</option>
+                                <option>Masculino</option>
+                                <option>Acessórios</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="relative w-full md:w-64">
+                            <select class="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-full leading-tight focus:outline-none focus:border-green-500">
+                                <option>Ordenar por</option>
+                                <option>Menor preço</option>
+                                <option>Maior preço</option>
+                                <option>Mais recentes</option>
+                                <option>Mais vendidos</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="productsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Products will be rendered here by JavaScript -->
+                </div>
+                
+                <div class="flex justify-center mt-8">
+                    <nav class="inline-flex rounded-md shadow">
+                        <a href="#" class="px-4 py-2 rounded-l-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        <a href="#" class="px-4 py-2 border-t border-b border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium">1</a>
+                        <a href="#" class="px-4 py-2 border-t border-b border-gray-300 bg-white text-gray-700 hover:bg-gray-50">2</a>
+                        <a href="#" class="px-4 py-2 border-t border-b border-gray-300 bg-white text-gray-700 hover:bg-gray-50">3</a>
+                        <a href="#" class="px-4 py-2 rounded-r-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Admin Section -->
+        <section id="admin" class="page-section hidden">
+            <div class="container mx-auto px-4 py-8">
+                <h1 class="text-3xl font-bold mb-8">Painel de Administração</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500">Total de Usuários</p>
+                                <h3 class="text-2xl font-bold">${database.users.length}</h3>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-full">
+                                <i class="fas fa-users text-green-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500">Total de Produtos</p>
+                                <h3 class="text-2xl font-bold">${database.products.length}</h3>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-full">
+                                <i class="fas fa-tshirt text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500">Pedidos Hoje</p>
+                                <h3 class="text-2xl font-bold">0</h3>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded-full">
+                                <i class="fas fa-shopping-bag text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500">Receita Total</p>
+                                <h3 class="text-2xl font-bold">R$ ${database.orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}</h3>
+                            </div>
+                            <div class="bg-purple-100 p-3 rounded-full">
+                                <i class="fas fa-dollar-sign text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+                    <div class="border-b border-gray-200">
+                        <nav class="flex -mb-px">
+                            <button id="usersTab" class="admin-tab active py-4 px-6 border-b-2 font-medium text-sm border-green-500 text-green-600">
+                                Usuários
+                            </button>
+                            <button id="productsTab" class="admin-tab py-4 px-6 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                Produtos
+                            </button>
+                            <button id="ordersTab" class="admin-tab py-4 px-6 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                Pedidos
+                            </button>
+                        </nav>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div id="usersTabContent">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium">Lista de Usuários</h3>
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                                    <i class="fas fa-plus mr-1"></i> Adicionar Usuário
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table id="usersTable" class="min-w-full divide-y divide-gray-200">
+                                    <!-- Users table will be rendered here by JavaScript -->
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div id="productsTabContent" class="hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium">Lista de Produtos</h3>
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                                    <i class="fas fa-plus mr-1"></i> Adicionar Produto
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table id="productsTable" class="min-w-full divide-y divide-gray-200">
+                                    <!-- Products table will be rendered here by JavaScript -->
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div id="ordersTabContent" class="hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium">Lista de Pedidos</h3>
+                                <div class="flex space-x-2">
+                                    <select class="bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-md leading-tight focus:outline-none focus:border-green-500">
+                                        <option>Todos os status</option>
+                                        <option>Pendente</option>
+                                        <option>Processando</option>
+                                        <option>Enviado</option>
+                                        <option>Entregue</option>
+                                        <option>Cancelado</option>
+                                    </select>
+                                    <input type="date" class="bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-md leading-tight focus:outline-none focus:border-green-500">
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table id="ordersTable" class="min-w-full divide-y divide-gray-200">
+                                    <!-- Orders table will be rendered here by JavaScript -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white pt-12 pb-6">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <i class="fas fa-leaf text-green-500 mr-2"></i>
+                        BW Estações
+                    </h3>
+                    <p class="text-gray-400">Moda para todas as estações do ano. Qualidade e estilo que você merece.</p>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Institucional</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">Sobre Nós</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Nossas Lojas</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Trabalhe Conosco</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Política de Privacidade</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Ajuda</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">Central de Atendimento</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Perguntas Frequentes</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Trocas e Devoluções</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Status do Pedido</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Contato</h4>
+                    <ul class="space-y-2">
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-map-marker-alt mr-2"></i> Av. Paulista, 1000 - São Paulo/SP
+                        </li>
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-phone-alt mr-2"></i> (11) 4002-8922
+                        </li>
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-envelope mr-2"></i> contato@bwestacoes.com.br
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-4 flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white">
+                            <i class="fab fa-facebook-f text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white">
+                            <i class="fab fa-instagram text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white">
+                            <i class="fab fa-twitter text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white">
+                            <i class="fab fa-youtube text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 mb-4 md:mb-0">© 2023 BW Estações. Todos os direitos reservados.</p>
+                <div class="flex space-x-6">
+                    <img src="https://via.placeholder.com/40x25" alt="Visa" class="h-6">
+                    <img src="https://via.placeholder.com/40x25" alt="Mastercard" class="h-6">
+                    <img src="https://via.placeholder.com/40x25" alt="Elo" class="h-6">
+                    <img src="https://via.placeholder.com/40x25" alt="Boleto" class="h-6">
+                    <img src="https://via.placeholder.com/40x25" alt="Pix" class="h-6">
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-gray-800">Entrar na Minha Conta</h3>
+                    <button onclick="closeModal('loginModal')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="mb-4">
+                        <label for="loginEmail" class="block text-gray-700 mb-2">Email</label>
+                        <input type="email" id="loginEmail" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="loginPassword" class="block text-gray-700 mb-2">Senha</label>
+                        <input type="password" id="loginPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                        <div class="flex justify-end mt-2">
+                            <a href="#" class="text-sm text-green-600 hover:text-green-800">Esqueceu sua senha?</a>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors mb-4">
+                        Entrar
+                    </button>
+                    
+                    <div class="text-center">
+                        <p class="text-gray-600">Não tem uma conta? 
+                            <a href="#" onclick="closeModal('loginModal'); openModal('registerModal')" class="text-green-600 hover:text-green-800 font-medium">Cadastre-se</a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+
+$0        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-gray-800">Criar Nova Conta</h3>
+                    <button onclick="closeModal('registerModal')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="registerForm" onsubmit="handleRegister(event)">
+                    <div class="mb-4">
+                        <label for="registerName" class="block text-gray-700 mb-2">Nome Completo</label>
+                        <input type="text" id="registerName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="registerEmail" class="block text-gray-700 mb-2">Email</label>
+                        <input type="email" id="registerEmail" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="registerPassword" class="block text-gray-700 mb-2">Senha</label>
+                        <input type="password" id="registerPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="registerConfirmPassword" class="block text-gray-700 mb-2">Confirmar Senha</label>
+                        <input type="password" id="registerConfirmPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors mb-4">
+                        Cadastrar
+                    </button>
+                    
+                    <div class="text-center">
+                        <p class="text-gray-600">Já tem uma conta? 
+                            <a href="#" onclick="closeModal('registerModal'); openModal('loginModal')" class="text-green-600 hover:text-green-800 font-medium">Faça login</a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu Script -->
+    <script>
+        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        });
+
+        document.getElementById('userDropdownBtn').addEventListener('click', function() {
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.classList.toggle('hidden');
+        });
+
+        // Admin tabs
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                document.querySelectorAll('.admin-tab').forEach(t => {
+                    t.classList.remove('active', 'border-green-500', 'text-green-600');
+                    t.classList.add('border-transparent', 'text-gray-500');
+                });
+                
+                // Add active class to clicked tab
+                this.classList.add('active', 'border-green-500', 'text-green-600');
+                this.classList.remove('border-transparent', 'text-gray-500');
+                
+                // Hide all tab contents
+                document.querySelectorAll('[id$="TabContent"]').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Show clicked tab content
+                const tabId = this.id.replace('Tab', '');
+                document.getElementById(`${tabId}TabContent`).classList.remove('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
